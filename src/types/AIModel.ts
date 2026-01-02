@@ -15,6 +15,10 @@ export interface AIModelCost {
     output_per_million: number;
 }
 
+export interface AIModelGroundings {
+    websearch?: number | null;
+}
+
 export interface AIModel {
     _id?: string;
     name: string;
@@ -26,6 +30,7 @@ export interface AIModel {
     cost: AIModelCost;
     limits: AIModelLimits;
     details: AIModelDetails;
+    groundings?: AIModelGroundings;
     created_at?: string;
     updated_at?: string;
 }
