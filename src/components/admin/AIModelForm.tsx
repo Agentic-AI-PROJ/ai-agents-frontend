@@ -15,7 +15,7 @@ export default function AIModelForm({ model, onChange }: AIModelFormProps) {
         onChange({ ...model, [field]: value });
     };
 
-    const updateNestedField = (parent: "cost" | "limits" | "details", field: string, value: any) => {
+    const updateNestedField = (parent: "cost" | "limits" | "details" | "groundings", field: string, value: any) => {
         onChange({
             ...model,
             [parent]: {
@@ -97,6 +97,21 @@ export default function AIModelForm({ model, onChange }: AIModelFormProps) {
                     onChange={(e) => updateNestedField("details", "requests_per_day", e.target.value ? parseInt(e.target.value) : null)}
                 />
             </div>
+
+            <div className="grid grid-cols-2 gap-4 border p-4 rounded-lg border-default-200">
+                <h3 className="col-span-2 text-small font-bold text-default-500">Grounding Limits</h3>
+
+                <Input
+                    label="Web Search Limit (Per Day)"
+                    type="number"
+                    placeholder="Enter limit or leave empty"
+                    value={model.groundings?.websearch?.toString() || ""}
+                    onChange={(e) => updateNestedField("groundings", "websearch", e.target.value ? parseInt(e.target.value) : null)}
+                />
+                {/* Placeholder for future grounding types */}
+                <div className="hidden"></div>
+            </div>
+
 
             <div className="grid grid-cols-2 gap-4 border p-4 rounded-lg border-default-200">
                 <h3 className="col-span-2 text-small font-bold text-default-500">Cost (per million)</h3>

@@ -31,7 +31,7 @@ const PromptInput = forwardRef<HTMLTextAreaElement, PromptInputProps>(({ onSend,
         const newAttachments: Attachment[] = [];
 
         for (const file of files) {
-            if (!file.type.startsWith('image/')) continue; // Only images for now
+            // if (!file.type.startsWith('image/')) continue; // Only images for now
 
             const id = uuidv4();
             const preview = URL.createObjectURL(file);
@@ -141,7 +141,7 @@ const PromptInput = forwardRef<HTMLTextAreaElement, PromptInputProps>(({ onSend,
                 ref={fileInputRef}
                 className="hidden"
                 multiple
-                accept="image/*"
+                // accept="image/*"
                 onChange={handleFileSelect}
             />
 
