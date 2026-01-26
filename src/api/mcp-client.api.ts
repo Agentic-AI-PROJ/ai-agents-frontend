@@ -10,6 +10,7 @@ export interface McpServer {
     isActive: boolean;
     addedAt: string;
     logo?: string;
+    name?: string;
 }
 
 export interface McpTool {
@@ -47,6 +48,26 @@ export const updateServer = async (key: string, data: Partial<McpServer>): Promi
 export const updateToolStatus = async (id: string, isActive: boolean): Promise<McpTool> => {
     const response = await axiosInstance.patch<{ tool: McpTool }>(`mcp-client/admin/tools/${id}/status`, { isActive });
     return response.data.tool;
+};
+
+export const addServer = async (server: Omit<McpServer, "_id" | "key" | "isActive" | "addedAt">): Promise<void> => {
+    await axiosInstance.post('/mcp-client/servers', server);
+};
+
+export const deleteServer = async (server: Partial<McpServer>): Promise<void> => {
+    await axiosInstance.delete('/mcp-client/servers', { data: server });
+
+};
+
+export const testServer = async (key: string): Promise<{ success: boolean; message: string; tools?: any[]; serverInfo?: any; capabilities?: any }> => {
+    const safeKey = encodeURIComponent(key);
+    const response = await axiosInstance.post<{ success: boolean; message: string; tools?: any[]; serverInfo?: any; capabilities?: any }>(`/mcp-client/admin/servers/${safeKey}/test`);
+    return response.data;
+};
+
+export const executeTool = async (name: string, args: any): Promise<any> => {
+    const response = await axiosInstance.post<{ result: any }>(`/mcp-client/tools/${name}`, { arguments: args });
+    return response.data.result;
 };
 
 // Simple in-memory cache for tool logos
