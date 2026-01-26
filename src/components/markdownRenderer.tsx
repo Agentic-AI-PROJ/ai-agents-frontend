@@ -94,17 +94,35 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
 
       // Determine if the link is external
       const isExternal = /^https?:\/\//.test(href);
+      let hostname = "";
+      try {
+        if (isExternal) {
+          hostname = new URL(href).hostname;
+        }
+      } catch (e) {
+        // ignore invalid URLs
+      }
 
       return (
         <a
           href={href}
           target={isExternal ? "_blank" : undefined}
           rel={isExternal ? "noopener noreferrer" : undefined}
-          className="inline-flex items-center gap-1 text-primary/100 underline decoration-dotted underline-offset-2 hover:text-primary/70 transition-colors duration-200"
+          className={`inline-flex items-center gap-1.5 transition-colors duration-200 ${isExternal
+            ? "px-2.5 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 no-underline font-medium text-xs border border-primary/20"
+            : "text-primary/100 underline decoration-dotted underline-offset-2 hover:text-primary/70"
+            }`}
           {...(props as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
         >
-          {children}
-          {isExternal && <ExternalLink className="w-4 h-4" />}
+          {isExternal && hostname && (
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${hostname}`}
+              alt=""
+              className="w-3.5 h-3.5 rounded-sm"
+            />
+          )}
+          <span>{children}</span>
+          {isExternal && <ExternalLink className="w-3 h-3 opacity-70" />}
         </a>
       );
     },
