@@ -6,6 +6,167 @@ import { Select, SelectItem } from "@heroui/select";
 import { Card, CardBody } from "@heroui/card";
 import { executeTool } from '@/api/mcp-client.api';
 
+// Helper to get default value for a schema
+const getDefaultValue = (schema: any): any => {
+    switch (schema.type) {
+        case 'string': return '';
+        case 'number':
+        case 'integer': return 0;
+        case 'boolean': return false;
+        case 'array': return [];
+        case 'object': return {};
+        default: return '';
+    }
+};
+
+interface DynamicFormInputProps {
+    name: string;
+    schema: any;
+    value: any;
+    onChange: (val: any) => void;
+    isRequired?: boolean;
+    level?: number;
+}
+
+const DynamicFormInput: React.FC<DynamicFormInputProps> = ({ name, schema, value, onChange, isRequired, level = 0 }) => {
+    const description = schema.description || "";
+    const label = `${name}${isRequired ? ' *' : ''}`;
+
+    if (schema.type === 'boolean') {
+        return (
+            <div className="flex flex-col gap-1 mb-4">
+                <Switch
+                    isSelected={!!value}
+                    onValueChange={onChange}
+                >
+                    {label}
+                </Switch>
+                {description && <p className="text-tiny text-default-400">{description}</p>}
+            </div>
+        );
+    }
+
+    if (schema.enum) {
+        return (
+            <Select
+                label={label}
+                placeholder={`Select ${name}`}
+                selectedKeys={value ? [value] : []}
+                onChange={(e) => onChange(e.target.value)}
+                className="mb-4"
+                description={description}
+            >
+                {schema.enum.map((val: string) => (
+                    <SelectItem key={val}>
+                        {val}
+                    </SelectItem>
+                ))}
+            </Select>
+        );
+    }
+
+    if (schema.type === 'object') {
+        const properties = schema.properties || {};
+        const required = schema.required || [];
+        const currentValue = value || {};
+
+        return (
+            <div className="flex flex-col gap-2 mb-4 p-4 border border-default-200 rounded-medium bg-default-50/50">
+                <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold">{label}</span>
+                    <span className="text-tiny text-default-400">Object</span>
+                </div>
+                {description && <p className="text-tiny text-default-400 mb-2">{description}</p>}
+
+                <div className="flex flex-col gap-2 pl-2 border-l-2 border-default-200">
+                    {Object.entries(properties).map(([propKey, propSchema]) => (
+                        <DynamicFormInput
+                            key={propKey}
+                            name={propKey}
+                            schema={propSchema}
+                            value={currentValue[propKey]}
+                            onChange={(val) => {
+                                onChange({ ...currentValue, [propKey]: val });
+                            }}
+                            isRequired={required.includes(propKey)}
+                            level={level + 1}
+                        />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (schema.type === 'array') {
+        const itemsSchema = schema.items || {};
+        const currentArray = Array.isArray(value) ? value : [];
+
+        const handleAddItem = () => {
+            const newItem = getDefaultValue(itemsSchema);
+            onChange([...currentArray, newItem]);
+        };
+
+        const handleRemoveItem = (index: number) => {
+            const newArray = [...currentArray];
+            newArray.splice(index, 1);
+            onChange(newArray);
+        };
+
+        return (
+            <div className="flex flex-col gap-2 mb-4 p-4 border border-default-200 rounded-medium bg-default-50/50">
+                <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold">{label}</span>
+                    <span className="text-tiny text-default-400">Array</span>
+                </div>
+                {description && <p className="text-tiny text-default-400 mb-2">{description}</p>}
+
+                <div className="flex flex-col gap-3">
+                    {currentArray.map((item: any, index: number) => (
+                        <div key={index} className="flex gap-2 items-start">
+                            <div className="flex-grow">
+                                <DynamicFormInput
+                                    name={`Item ${index + 1}`}
+                                    schema={itemsSchema}
+                                    value={item}
+                                    onChange={(val) => {
+                                        const newArray = [...currentArray];
+                                        newArray[index] = val;
+                                        onChange(newArray);
+                                    }}
+                                    level={level + 1}
+                                />
+                            </div>
+                            <Button isIconOnly color="danger" variant="light" size="sm" onPress={() => handleRemoveItem(index)}>
+                                X
+                            </Button>
+                        </div>
+                    ))}
+                    <Button size="sm" variant="flat" color="primary" onPress={handleAddItem} className="self-start">
+                        + Add Item
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    // Default to Input
+    return (
+        <Input
+            label={label}
+            placeholder={`Enter ${name}`}
+            type={schema.type === 'number' || schema.type === 'integer' ? 'number' : 'text'}
+            value={value || ''}
+            onValueChange={(val) => {
+                const finalVal = (schema.type === 'number' || schema.type === 'integer') ? Number(val) : val;
+                onChange(finalVal);
+            }}
+            className="mb-4"
+            description={description}
+            isRequired={isRequired}
+        />
+    );
+};
+
 interface ToolTesterProps {
     toolName: string;
     schema: any;
@@ -19,22 +180,14 @@ export const ToolTester: React.FC<ToolTesterProps> = ({ toolName, schema }) => {
 
     // Initial properties setup
     useEffect(() => {
-        // Initialize defaults if any, or just empty
-        // Schema structure: { type: "object", properties: { ... }, required: [...] }
+        // We could initiate default args here if we wanted
     }, [schema]);
-
-    const handleChange = (key: string, value: any) => {
-        setArgs(prev => ({ ...prev, [key]: value }));
-    };
 
     const handleRun = async () => {
         setLoading(true);
         setError(null);
         setResult(null);
         try {
-            // Filter out empty optional strings/undefined to avoid sending unnecessary data
-            // but for now sending what's in state is fine. 
-            // Maybe rudimentary validation against 'required' fields
             const output = await executeTool(toolName, args);
             setResult(output);
         } catch (err: any) {
@@ -45,72 +198,22 @@ export const ToolTester: React.FC<ToolTesterProps> = ({ toolName, schema }) => {
         }
     };
 
-    const renderField = (key: string, prop: any, isRequired: boolean) => {
-        const description = prop.description || "";
-        const label = `${key}${isRequired ? ' *' : ''}`;
-
-        if (prop.type === 'boolean') {
-            return (
-                <div key={key} className="flex flex-col gap-1 mb-4">
-                    <Switch
-                        isSelected={!!args[key]}
-                        onValueChange={(val) => handleChange(key, val)}
-                    >
-                        {label}
-                    </Switch>
-                    {description && <p className="text-tiny text-default-400">{description}</p>}
-                </div>
-            );
-        }
-
-        if (prop.enum) {
-            return (
-                <Select
-                    key={key}
-                    label={label}
-                    placeholder={`Select ${key}`}
-                    selectedKeys={args[key] ? [args[key]] : []}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                    className="mb-4"
-                    description={description}
-                >
-                    {prop.enum.map((val: string) => (
-                        <SelectItem key={val}>
-                            {val}
-                        </SelectItem>
-                    ))}
-                </Select>
-            );
-        }
-
-        // Default to text input for string/number/others
-        return (
-            <Input
-                key={key}
-                label={label}
-                placeholder={`Enter ${key}`}
-                type={prop.type === 'number' || prop.type === 'integer' ? 'number' : 'text'}
-                value={args[key] || ''}
-                onValueChange={(val) => {
-                    const finalVal = (prop.type === 'number' || prop.type === 'integer') ? Number(val) : val;
-                    handleChange(key, finalVal);
-                }}
-                className="mb-4"
-                description={description}
-                isRequired={isRequired}
-            />
-        );
-    };
-
     const properties = schema?.properties || {};
     const required = schema?.required || [];
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(properties).map(([key, prop]) =>
-                    renderField(key, prop, required.includes(key))
-                )}
+            <div className="flex flex-col gap-4">
+                {Object.entries(properties).map(([key, prop]) => (
+                    <DynamicFormInput
+                        key={key}
+                        name={key}
+                        schema={prop}
+                        value={args[key]}
+                        onChange={(val) => setArgs(prev => ({ ...prev, [key]: val }))}
+                        isRequired={required.includes(key)}
+                    />
+                ))}
                 {Object.keys(properties).length === 0 && (
                     <p className="text-default-500 italic">No arguments required for this tool.</p>
                 )}
